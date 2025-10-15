@@ -2,6 +2,7 @@
 
 import React, { useState, useContext } from 'react';
 import { View, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,Button } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 // New style using the RNE themed package
 import { Text, Input, Icon, Card } from '@rneui/themed';
 import AuthContext from '../context/AuthContext';
@@ -53,6 +54,7 @@ const AuthScreen = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      <SafeAreaView style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text h3 style={styles.title}>{isLogin ? 'Welcome Back' : 'Create Account'}</Text>
         <Text style={styles.subtitle}>
@@ -123,6 +125,7 @@ const AuthScreen = () => {
           onPress={switchMode}
         />
       </ScrollView>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 };

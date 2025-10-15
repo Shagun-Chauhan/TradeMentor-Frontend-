@@ -1,9 +1,10 @@
 // src/screens/HomeScreen.js
 
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator,Button } from 'react-native';
-import { Text, Card, Icon } from '@rneui/themed';
-import { getMarketOverview, getWatchlist } from '../api/tradeMentorApi';
+import { View, StyleSheet, ScrollView, RefreshControl, ActivityIndicator,Button, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, Card, Icon, SearchBar, Button as RNEButton } from '@rneui/themed';
+import { getMarketOverview, getWatchlist, getLatestStock, searchStocks, addToWatchlist, removeFromWatchlist } from '../api/tradeMentorApi';
 
 const CardHeader = ({ title, iconName }) => (
   <View style={styles.cardHeader}>
@@ -12,19 +13,36 @@ const CardHeader = ({ title, iconName }) => (
   </View>
 );
 
-const HomeScreen = () => {
+const HomeScreen = ({ navigation }) => {
   const [marketData, setMarketData] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const overview = await getMarketOverview();
       const list = await getWatchlist();
-      
+
+      // Enrich watchlist with live price and change
+      const enriched = await Promise.all((list || []).map(async (item) => {
+        try {
+          const q = await getLatestStock(item.symbol);
+          const price = q?.regularMarketPrice ?? q?.lastPrice ?? q?.price ?? q?.currentPrice ?? null;
+          const changePct = q?.regularMarketChangePercent ?? q?.changePercent ?? q?.change ?? 0;
+          return { ...item, price, change: changePct };
+        } catch {
+          return { ...item, price: null, change: 0 };
+        }
+      }));
+
       setMarketData(overview);
-      setWatchlist(list);
+      setWatchlist(enriched);
+      
+      
+      
     } catch (error) {
       console.error("Failed to fetch data:", error);
       // Implement a better error display in a real app
@@ -35,6 +53,8 @@ const HomeScreen = () => {
 
   useEffect(() => {
     fetchData();
+    const id = setInterval(fetchData, 20000); // auto-refresh watchlist
+    return () => clearInterval(id);
   }, []);
 
   const renderIndex = (title, value, change) => (
@@ -56,8 +76,9 @@ const HomeScreen = () => {
   }
 
   return (
+    <SafeAreaView style={styles.container}>
     <ScrollView 
-      style={styles.container}
+      style={{ flex: 1 }}
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={fetchData} tintColor="#FF8C00" />
       }
@@ -77,35 +98,50 @@ const HomeScreen = () => {
       {/* Watchlist Card */}
       <Card containerStyle={styles.card}>
         <CardHeader title="My Watchlist" iconName="eye-outline" />
+        <SearchBar
+          placeholder="Search stocks to add..."
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={async () => { try { const r = await searchStocks(query); setSearchResults(r || []); } catch { setSearchResults([]); } }}
+          containerStyle={styles.searchContainer}
+          inputContainerStyle={styles.searchInputContainer}
+          inputStyle={styles.searchInput}
+          lightTheme={false}
+        />
+        {searchResults.slice(0, 5).map((res, idx) => (
+          <View key={res.symbol || idx} style={styles.searchRow}>
+            <Text style={styles.stockSymbol}>{res.symbol}</Text>
+            <RNEButton title="Add" type="outline" buttonStyle={styles.addBtn} onPress={async () => { await addToWatchlist(res.symbol); setQuery(''); setSearchResults([]); fetchData(); }} />
+          </View>
+        ))}
+
         {watchlist.length > 0 ? (
-          watchlist.slice(0, 3).map((stock, index) => (
-            <View key={index} style={styles.stockRow}>
-              <Text style={styles.stockSymbol}>{stock.symbol}</Text>
-              <Text style={styles.stockPrice}>${stock?.price?.toFixed(2)}</Text>
-              <Text style={[styles.stockChange, { color: stock.change >= 0 ? '#4CAF50' : '#FF6347' }]}>
-                {stock.change >= 0 ? '▲' : '▼'} {Math.abs(stock.change).toFixed(2)}%
+          watchlist.map((stock, index) => (
+            <View key={stock.id || stock.symbol || index} style={styles.stockRow}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.navigate('StockDetails', { symbol: stock.symbol })}>
+                <Text style={styles.stockSymbol}>{stock.symbol}</Text>
+              </TouchableOpacity>
+              <Text style={styles.stockPrice}>${Number(stock?.price ?? 0).toFixed(2)}</Text>
+              <Text style={[styles.stockChange, { color: (stock.change ?? 0) >= 0 ? '#4CAF50' : '#FF6347' }]}>
+                {(stock.change ?? 0) >= 0 ? '▲' : '▼'} {Math.abs(Number(stock.change ?? 0)).toFixed(2)}%
               </Text>
+              <RNEButton title="Remove" type="outline" buttonStyle={styles.removeBtn} onPress={async () => { await removeFromWatchlist(stock.symbol); fetchData(); }} />
             </View>
           ))
         ) : (
           <Text style={styles.emptyText}>Watchlist is empty. Add some stocks!</Text>
         )}
-        <Button
-          title="View All"
-          type="outline"
-          buttonStyle={styles.viewAllButton}
-          titleStyle={styles.viewAllTitle}
-        />
       </Card>
       
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', padding: 10 },
-  pageTitle: { color: '#fff', margin: 10, fontWeight: 'bold' },
-  card: { backgroundColor: '#1C1C1C', borderRadius: 12, borderWidth: 0, padding: 15, marginBottom: 15 },
+  pageTitle: { color: '#fff', margin: 10, fontWeight: 'bold', fontSize: 20 },
+  card: { backgroundColor: '#1C1C1C', borderRadius: 16, borderWidth: 0, padding: 16, marginBottom: 16 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   cardTitle: { color: '#fff', fontSize: 18, marginLeft: 10, fontWeight: 'bold' },
   indicesGrid: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
@@ -120,6 +156,12 @@ const styles = StyleSheet.create({
   emptyText: { color: '#ccc', textAlign: 'center', padding: 10 },
   viewAllButton: { borderColor: '#FF8C00', marginTop: 10, borderRadius: 8 },
   viewAllTitle: { color: '#FF8C00' },
+  searchContainer: { backgroundColor: '#1C1C1C', borderBottomColor: 'transparent', borderTopColor: 'transparent', paddingHorizontal: 0, marginBottom: 8 },
+  searchInputContainer: { backgroundColor: '#111', borderRadius: 8 },
+  searchInput: { color: '#fff' },
+  searchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#222' },
+  addBtn: { borderRadius: 8, borderColor: '#4CAF50' },
+  removeBtn: { borderRadius: 8, borderColor: '#FF6347', marginLeft: 8 },
 });
 
 export default HomeScreen;

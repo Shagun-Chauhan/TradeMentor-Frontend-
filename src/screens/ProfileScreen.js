@@ -2,6 +2,7 @@
 
 import React, { useContext, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator,  } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Icon, ListItem, Avatar, Button } from '@rneui/themed';
 import AuthContext from '../context/AuthContext';
 import { getProfile } from '../api/tradeMentorApi';
@@ -37,17 +38,55 @@ const ProfileScreen = () => {
       </View>
     );
   }
+// console.log(profileData);
 
-  const list = [
-    { title: 'Email', icon: 'mail-outline', value: profileData?.email || 'N/A' },
-    { title: 'Member Since', icon: 'calendar-outline', value: profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : 'N/A' },
-    { title: 'Total Trades', icon: 'stats-chart-outline', value: profileData?.totalTrades?.toString() || '0' },
-    { title: 'AI Chat History', icon: 'chatbox-outline', onPress: () => alert('Navigate to Chat History') },
-    { title: 'Settings', icon: 'settings-outline', onPress: () => alert('Navigate to Settings') },
-  ];
+const list = [
+  { 
+    title: 'Email', 
+    icon: 'mail-outline', 
+    value: profileData?.user?.email || 'N/A' 
+  },
+  { 
+    title: 'Name', 
+    icon: 'person-outline', 
+    value: profileData?.user?.name || 'N/A' 
+  },
+  { 
+    title: 'Cash Balance', 
+    icon: 'wallet-outline', 
+    value: profileData?.user?.cashBalance?.toFixed(2) || '0.00' 
+  },
+  { 
+    title: 'Blocked Funds', 
+    icon: 'lock-closed-outline', 
+    value: profileData?.user?.blockedFunds?.toFixed(2) || '0.00' 
+  },
+  { 
+    title: 'Member Since', 
+    icon: 'calendar-outline', 
+    value: profileData?.user?.createdAt ? new Date(profileData.user.createdAt).toLocaleDateString() : 'N/A' 
+  },
+  { 
+    title: 'Total Trades', 
+    icon: 'stats-chart-outline', 
+    value: profileData?.user?.totalTrades?.toString() || '0' 
+  },
+  { 
+    title: 'AI Chat History', 
+    icon: 'chatbox-outline', 
+    onPress: () => alert('Navigate to Chat History') 
+  },
+  { 
+    title: 'Settings', 
+    icon: 'settings-outline', 
+    onPress: () => alert('Navigate to Settings') 
+  },
+];
+
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
+    <SafeAreaView style={styles.container}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
       
       <Card containerStyle={styles.profileCard}>
         <View style={styles.header}>
@@ -58,7 +97,7 @@ const ProfileScreen = () => {
             containerStyle={{ backgroundColor: '#FF8C00' }}
           />
           <View style={styles.headerText}>
-            <Text h4 style={styles.nameText}>{profileData?.name || 'User Name'}</Text>
+            <Text h4 style={styles.nameText}>{profileData?.user?.name || 'User Name'}</Text>
             <Text style={styles.statusText}>Pro Trader Status: Active</Text>
           </View>
         </View>
@@ -90,6 +129,7 @@ const ProfileScreen = () => {
       />
 
     </ScrollView>
+    </SafeAreaView>
   );
 };
 

@@ -8,11 +8,13 @@ import { Icon, ThemeProvider, createTheme,LinearProgress } from '@rneui/themed';
 
 // Import Screens
 import HomeScreen from './src/screens/HomeScreen';
+import StockDetailsScreen from './src/screens/StockDetailsScreen';
 import IPOScreen from './src/screens/IPOScreen';
 import NewsScreen from './src/screens/NewsScreen';
 import PortfolioScreen from './src/screens/PortfolioScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AuthScreen from './src/screens/AuthScreen';
+import LearnScreen from './src/screens/LearnScreen';
 
 // Import Context
 import { AuthProvider, default as AuthContext } from './src/context/AuthContext';
@@ -49,6 +51,15 @@ const customDarkTheme = createTheme({
 const Tab = createBottomTabNavigator();
 const AuthStack = createStackNavigator();
 
+const HomeStack = createStackNavigator();
+
+const HomeNavigator = () => (
+  <HomeStack.Navigator screenOptions={{ headerStyle: styles.headerStyle, headerTintColor: '#fff' }}>
+    <HomeStack.Screen name="HomeMain" component={HomeScreen} options={{ title: 'TradeMentor' }} />
+    <HomeStack.Screen name="StockDetails" component={StockDetailsScreen} options={({ route }) => ({ title: route.params?.symbol || 'Details' })} />
+  </HomeStack.Navigator>
+);
+
 const AppTabs = () => (
   <Tab.Navigator
     initialRouteName="Home"
@@ -60,6 +71,9 @@ const AppTabs = () => (
         switch (route.name) {
           case 'Home':
             iconName = 'home-outline';
+            break;
+          case 'Learn':
+            iconName = 'school-outline';
             break;
           case 'IPO':
             iconName = 'rocket-outline';
@@ -82,15 +96,13 @@ const AppTabs = () => (
       tabBarStyle: styles.tabBar,
       tabBarActiveTintColor: customDarkTheme.darkColors.primary, // Using theme color
       tabBarInactiveTintColor: 'gray',
-      headerStyle: styles.headerStyle,
-      headerTintColor: '#fff',
-      headerShown: true,
-      headerTitleStyle: { fontWeight: 'bold' }
+      headerShown: false
     })}
   >
-    <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'TradeMentor' }} />
+    <Tab.Screen name="Home" component={HomeNavigator} options={{ title: 'Home' }} />
     <Tab.Screen name="Portfolio" component={PortfolioScreen} />
     <Tab.Screen name="News" component={NewsScreen} />
+    <Tab.Screen name="Learn" component={LearnScreen} />
     <Tab.Screen name="IPO" component={IPOScreen} />
     <Tab.Screen name="Profile" component={ProfileScreen} />
   </Tab.Navigator>

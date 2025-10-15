@@ -9,6 +9,8 @@ import { BASE_URL, JWT_TOKEN } from './config';
 const fetchApi = async (endpoint, options = {}) => {
   const headers = {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
     ...options.headers,
   };
 
@@ -42,6 +44,10 @@ const fetchApi = async (endpoint, options = {}) => {
   }
 };
 
+// --- HEALTH ---
+
+export const healthCheck = () => fetchApi('/', { method: 'GET' });
+
 // --- AUTHENTICATION & PROFILE ---
 
 export const signupUser = (name, email, password) => 
@@ -61,6 +67,12 @@ export const loginUser = (email, password) =>
 export const getProfile = () => 
   fetchApi('/api/auth/profile', { method: 'GET' });
 
+export const updateProfile = (payload) =>
+  fetchApi('/api/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
 // --- LIVE STOCK DATA & MARKET ---
 
 export const getMarketOverview = () => 
@@ -72,29 +84,143 @@ export const getWatchlist = () =>
 export const getStockData = (symbol) => 
   fetchApi(`/api/stocks/${symbol}`, { method: 'GET' });
 
+export const getLatestStock = (symbol) =>
+  fetchApi(`/api/stocks/${symbol}`, { method: 'GET' });
+
+export const addToWatchlist = (symbol) =>
+  fetchApi('/api/stocks/watchlist/add', {
+    method: 'POST',
+    body: JSON.stringify({ symbol }),
+  });
+
+export const removeFromWatchlist = (symbol) =>
+  fetchApi(`/api/stocks/watchlist/remove/${encodeURIComponent(symbol)}`, { method: 'DELETE' });
+
+export const getStockHistory = (symbol) =>
+  fetchApi(`/api/stocks/${symbol}/history`, { method: 'GET' });
+
+export const searchStocks = (query) =>
+  fetchApi(`/api/stocks/search?query=${encodeURIComponent(query)}`, { method: 'GET' });
+
+export const getSectorStocks = (sector) =>
+  fetchApi(`/api/stocks/sector/${encodeURIComponent(sector)}`, { method: 'GET' });
+
+export const getCompanyInfo = (symbol) =>
+  fetchApi(`/api/stock-details/company/${encodeURIComponent(symbol)}`, { method: 'GET' });
+
 // --- PORTFOLIO ---
 
 export const getPortfolioSummary = () => 
   fetchApi('/api/portfolio/summary', { method: 'GET' });
+
+export const getPortfolioHoldings = () =>
+  fetchApi('/api/portfolio/holdings', { method: 'GET' });
+
+export const getPortfolioTransactions = (page = 1, limit = 20) =>
+  fetchApi(`/api/portfolio/transactions?page=${page}&limit=${limit}`, { method: 'GET' });
+
+export const getPortfolioPerformance = () =>
+  fetchApi('/api/portfolio/performance', { method: 'GET' });
 
 // --- NEWS ---
 
 export const getNews = (page = 1, limit = 10, query = '') => 
   fetchApi(`/api/news?page=${page}&limit=${limit}&q=${query}`, { method: 'GET' });
 
+export const getNewsById = (id) =>
+  fetchApi(`/api/news/${id}`, { method: 'GET' });
+
+export const refreshNewsAdmin = (adminSecret, payload) =>
+  fetchApi('/api/news/admin/refresh', {
+    method: 'POST',
+    headers: { 'x-admin-secret': adminSecret },
+    body: JSON.stringify(payload),
+  });
+
 // --- IPO ---
 
 export const getAllIpos = () => 
   fetchApi('/api/ipos', { method: 'GET' });
+
+export const getIpoById = (ipoId) =>
+  fetchApi(`/api/ipos/${ipoId}`, { method: 'GET' });
+
+export const getIpoBySymbol = (symbol) =>
+  fetchApi(`/api/ipos/symbol/${encodeURIComponent(symbol)}`, { method: 'GET' });
+
+export const applyForIpo = (ipoId, userId, appliedLots) =>
+  fetchApi(`/api/ipos/${ipoId}/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ userId, appliedLots }),
+  });
+
+export const getIpoApplications = (ipoId) =>
+  fetchApi(`/api/ipos/${ipoId}/applications`, { method: 'GET' });
+
+export const getIpoAllotment = (ipoId) =>
+  fetchApi(`/api/ipos/${ipoId}/allotment`, { method: 'GET' });
 
 // --- AI & LEARN ---
 
 export const chatWithAI = (message) => 
   fetchApi('/api/learn/chat', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
   });
   
-  fetch(`${BASE_URL}/auth/profile`)
-  .then(res => console.log('✅ Connected to backend:', res.status))
-  .catch(err => console.log('❌ Cannot connect to backend:', err.message));
+export const getLearnContent = (level = 'beginner') =>
+  fetchApi(`/api/learn/content/${level}`, { method: 'GET' });
+
+export const searchLearnContent = (level = 'beginner', q = '') =>
+  fetchApi(`/api/learn/content/${level}/search?q=${encodeURIComponent(q)}`, { method: 'GET' });
+
+export const resetLearnChat = () =>
+  fetchApi('/api/learn/reset', { method: 'POST' });
+
+// --- TRADING ---
+
+export const placeOrder = ({ symbol, type, qty, price }) =>
+  fetchApi('/api/trade/place', {
+    method: 'POST',
+    body: JSON.stringify({ symbol, type, qty, price }),
+  });
+
+export const getTradingHistory = (page = 1, limit = 20) =>
+  fetchApi(`/api/trade/history?page=${page}&limit=${limit}`, { method: 'GET' });
+
+// --- STOP LOSS ---
+
+export const createStopLoss = ({ symbol, stopLossPrice, quantity }) =>
+  fetchApi('/api/stop-loss', {
+    method: 'POST',
+    body: JSON.stringify({ symbol, stopLossPrice, quantity }),
+  });
+
+export const getStopLossOrders = () =>
+  fetchApi('/api/stop-loss', { method: 'GET' });
+
+export const updateStopLoss = (stopLossId, { stopLossPrice, quantity }) =>
+  fetchApi(`/api/stop-loss/${stopLossId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ stopLossPrice, quantity }),
+  });
+
+export const deleteStopLoss = (stopLossId) =>
+  fetchApi(`/api/stop-loss/${stopLossId}`, { method: 'DELETE' });
+
+// --- AI PORTFOLIO ---
+
+export const analyzePortfolio = () =>
+  fetchApi('/api/ai/portfolio/analyze', { method: 'GET' });
+
+export const getAIRecommendations = (marketData) =>
+  fetchApi('/api/ai/recommendations', {
+    method: 'POST',
+    body: JSON.stringify({ marketData }),
+  });
+
+export const getMarketInsights = (symbolsCsv) =>
+  fetchApi(`/api/ai/market-insights?symbols=${encodeURIComponent(symbolsCsv)}`, { method: 'GET' });
+  
+  // Connectivity check removed (hit wrong path and caused noisy logs)
