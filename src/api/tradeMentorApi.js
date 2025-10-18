@@ -180,11 +180,23 @@ export const resetLearnChat = () =>
 
 // --- TRADING ---
 
-export const placeOrder = ({ symbol, type, qty, price }) =>
-  fetchApi('/api/trade/place', {
-    method: 'POST',
-    body: JSON.stringify({ symbol, type, qty, price }),
-  });
+export const placeOrder = async ({ symbol, type, qty, price }) => {
+  try {
+    const response = await fetchApi('/api/trade/place', {
+      method: 'POST',
+      body: JSON.stringify({ symbol, type, qty, price }),
+    });
+
+    console.log("✅ Order placed successfully:", response);
+    return response; // pass response back to component
+
+  } catch (error) {
+    console.error("❌ Error placing order:", error.message || error);
+    // You can choose to show a user-friendly error in your UI later
+    throw error; // rethrow so caller knows it failed
+  }
+};
+
 
 export const getTradingHistory = (page = 1, limit = 20) =>
   fetchApi(`/api/trade/history?page=${page}&limit=${limit}`, { method: 'GET' });

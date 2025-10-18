@@ -6,20 +6,55 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, Card, Button, Input } from '@rneui/themed';
 import { getCompanyInfo, getLatestStock, getStockHistory, addToWatchlist, removeFromWatchlist, placeOrder } from '../api/tradeMentorApi';
 
-// Simple candlestick using a minimal render; replace with a chart lib later
-const Candle = ({ o, h, l, c }) => {
-  const up = c >= o;
-  const color = up ? '#4CAF50' : '#FF6347';
-  const bodyHeight = Math.max(2, Math.abs(c - o));
+// Candlestick chart with proper scaling
+const CandlestickChart = ({ candles, height = 120 }) => {
+  if (!candles.length) return null;
+
+  const prices = candles.flatMap(c => [c.open, c.high, c.low, c.close]);
+  const maxPrice = Math.max(...prices);
+  const minPrice = Math.min(...prices);
+  const priceRange = maxPrice - minPrice || 1;
+
   return (
-    <View style={{ alignItems: 'center', marginHorizontal: 2 }}>
-      <View style={{ width: 2, height: Math.max(4, Math.abs(h - l)), backgroundColor: color }} />
-      <View style={{ width: 8, height: bodyHeight, backgroundColor: color, marginTop: 2 }} />
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height }}>
+      {candles.map((c, idx) => {
+        const scaleY = price => ((maxPrice - price) / priceRange) * height;
+        const top = scaleY(Math.max(c.open, c.close));
+        const bottom = scaleY(Math.min(c.open, c.close));
+        const wickTop = scaleY(c.high);
+        const wickBottom = scaleY(c.low);
+        const color = c.close >= c.open ? '#4CAF50' : '#FF6347';
+        return (
+          <View key={idx} style={{ width: 8, marginHorizontal: 2, position: 'relative', height }}>
+            {/* Wick */}
+            <View
+              style={{
+                position: 'absolute',
+                top: wickTop,
+                left: 3,
+                width: 2,
+                height: wickBottom - wickTop,
+                backgroundColor: color
+              }}
+            />
+            {/* Body */}
+            <View
+              style={{
+                position: 'absolute',
+                top,
+                height: bottom - top,
+                width: 8,
+                backgroundColor: color
+              }}
+            />
+          </View>
+        );
+      })}
     </View>
   );
 };
 
-const StockDetailsScreen = ({ route }) => {
+const StockDetailsScreen = ({ route, navigation }) => {
   const { symbol } = route.params;
   const [company, setCompany] = useState(null);
   const [quote, setQuote] = useState(null);
@@ -40,7 +75,7 @@ const StockDetailsScreen = ({ route }) => {
         getStockHistory(symbol),
       ]);
       setCompany(c);
-      // Normalize quote fields across possible shapes (quote, data, result[0])
+     
       const src = q?.quote || q?.data || (Array.isArray(q?.result) ? q.result[0] : undefined) || q;
       const normalizedQuote = {
         regularMarketPrice: src?.regularMarketPrice ?? src?.lastPrice ?? src?.price ?? src?.currentPrice ?? null,
@@ -49,17 +84,15 @@ const StockDetailsScreen = ({ route }) => {
         regularMarketDayLow: src?.regularMarketDayLow ?? src?.lowPrice ?? null,
       };
       setQuote(normalizedQuote);
-      // Normalize candles: expect array of objects with open/high/low/close or o/h/l/c
-      const raw = Array.isArray(h) ? h : (h?.data || []);
-      const candles = raw.map(x => ({
-        open: x.open ?? x.o,
-        high: x.high ?? x.h,
-        low: x.low ?? x.l,
-        close: x.close ?? x.c,
-      })).filter(x => x.open != null && x.high != null && x.low != null && x.close != null);
-      setHistory(candles);
 
-      // If O/H/L are missing from quote, derive from latest candle
+      // const candles = raw.map(x => ({
+      //   open: x.open ?? x.o,
+      //   high: x.high ?? x.h,
+      //   low: x.low ?? x.l,
+      //   close: x.close ?? x.c,
+      // })).filter(x => x.open != null && x.high != null && x.low != null && x.close != null);
+      // setHistory(candles);
+
       if (!normalizedQuote.regularMarketOpen && candles.length) {
         const last = candles[candles.length - 1];
         setQuote(prev => ({
@@ -70,8 +103,8 @@ const StockDetailsScreen = ({ route }) => {
           regularMarketPrice: prev?.regularMarketPrice ?? last.close,
         }));
       }
-    } catch (e) {
-      console.error('Failed loading stock details', e);
+    // } catch (e) {
+    //   console.error('Failed loading stock details', e);
     } finally {
       setLoading(false);
     }
@@ -79,7 +112,7 @@ const StockDetailsScreen = ({ route }) => {
 
   useEffect(() => { 
     load(); 
-    const id = setInterval(load, 15000); // poll every 15s for a simple realtime effect
+    const id = setInterval(load, 15000);
     return () => clearInterval(id);
   }, [symbol]);
 
@@ -115,6 +148,7 @@ const StockDetailsScreen = ({ route }) => {
       await placeOrder(payload);
       setBuyVisible(false);
       Alert.alert('Order', 'Order placed successfully');
+      navigation.navigate('Portfolio');
     } catch (e) {
       Alert.alert('Error', 'Could not place order');
     } finally {
@@ -132,56 +166,52 @@ const StockDetailsScreen = ({ route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
-      <Card containerStyle={styles.card}>
-        <Text h4 style={styles.title}>{company?.companyName || symbol}</Text>
-        <Text style={styles.meta}>{company?.sector} • {company?.industry}</Text>
-        <Text style={styles.desc}>{company?.description}</Text>
-      </Card>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
+        <Card containerStyle={styles.card}>
+          <Text h4 style={styles.title}>{company?.companyName || symbol}</Text>
+          <Text style={styles.meta}>{company?.sector} • {company?.industry}</Text>
+          <Text style={styles.desc}>{company?.description}</Text>
+        </Card>
 
-      <Card containerStyle={styles.card}>
-        <Text style={styles.section}>Price</Text>
-        <Text style={styles.price}>₹{Number(quote?.regularMarketPrice || 0).toFixed(2)}</Text>
-        <View style={styles.row}>
-          <Text style={styles.kv}>Open: {quote?.regularMarketOpen ?? '-'} </Text>
-          <Text style={styles.kv}>High: {quote?.regularMarketDayHigh ?? '-'} </Text>
-          <Text style={styles.kv}>Low: {quote?.regularMarketDayLow ?? '-'} </Text>
-        </View>
-        <View style={styles.actionsRow}>
-          <Button title="Buy" onPress={() => setBuyVisible(true)} loading={actionLoading} buttonStyle={styles.primaryBtn} />
-          <Button title="Remove" type="outline" onPress={onRemove} loading={actionLoading} buttonStyle={styles.secondaryBtn} />
-        </View>
-      </Card>
+        <Card containerStyle={styles.card}>
+          <Text style={styles.section}>Price</Text>
+          <Text style={styles.price}>₹{Number(quote?.regularMarketPrice || 0).toFixed(2)}</Text>
+          <View style={styles.row}>
+            <Text style={styles.kv}>Open: {quote?.regularMarketOpen ?? '-'}</Text>
+            <Text style={styles.kv}>High: {quote?.regularMarketDayHigh ?? '-'}</Text>
+            <Text style={styles.kv}>Low: {quote?.regularMarketDayLow ?? '-'}</Text>
+          </View>
+          <View style={styles.actionsRow}>
+            <Button title="Buy" onPress={() => setBuyVisible(true)} loading={actionLoading} buttonStyle={styles.primaryBtn} />
+            <Button title="Remove" type="outline" onPress={onRemove} loading={actionLoading} buttonStyle={styles.secondaryBtn} />
+          </View>
+        </Card>
 
-      <Card containerStyle={styles.card}>
-        <Text style={styles.section}>Candlestick (recent)</Text>
-        <View style={styles.candlesRow}>
-          {history.slice(-40).map((c, idx) => (
-            <Candle key={idx} o={c.open} h={c.high} l={c.low} c={c.close} />
-          ))}
-        </View>
-      </Card>
+        <Card containerStyle={styles.card}>
+          <Text style={styles.section}>Candlestick (recent)</Text>
+          <CandlestickChart candles={history.slice(-40)} height={120} />
+        </Card>
 
-      <Modal visible={buyVisible} transparent animationType="fade" onRequestClose={() => setBuyVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <Card containerStyle={styles.modalCard}>
-            <Text h4 style={styles.title}>Buy {symbol}</Text>
-            <View style={styles.row}>
-              <Button title="Market" type={orderType==='MARKET_BUY'?'solid':'outline'} onPress={() => setOrderType('MARKET_BUY')} buttonStyle={styles.secondaryBtn} />
-              <Button title="Limit" type={orderType==='BUY'?'solid':'outline'} onPress={() => setOrderType('BUY')} buttonStyle={styles.secondaryBtn} />
-            </View>
-            <Input keyboardType="numeric" label="Quantity" value={qty} onChangeText={setQty} inputStyle={styles.input} labelStyle={styles.label} />
-            {orderType === 'BUY' && (
-              <Input keyboardType="numeric" label="Limit Price" value={limitPrice} onChangeText={setLimitPrice} inputStyle={styles.input} labelStyle={styles.label} />
-            )}
-            <View style={styles.actionsRow}>
-              <Button title="Cancel" type="outline" onPress={() => setBuyVisible(false)} buttonStyle={styles.secondaryBtn} />
-              <Button title={actionLoading? 'Placing...':'Place Order'} onPress={submitBuy} loading={actionLoading} buttonStyle={styles.primaryBtn} />
-            </View>
-          </Card>
-        </View>
-      </Modal>
-    </ScrollView>
+        <Modal visible={buyVisible} transparent animationType="fade" onRequestClose={() => setBuyVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <Card containerStyle={styles.modalCard}>
+              <Text h4 style={styles.title}>Buy {symbol}</Text>
+              <View style={styles.row}>
+                <Button title="Market" type={orderType==='MARKET_BUY'?'solid':'outline'} onPress={() => setOrderType('MARKET_BUY')} buttonStyle={styles.secondaryBtn} />
+                <Button title="Limit" type={orderType==='BUY'?'solid':'outline'} onPress={() => setOrderType('BUY')} buttonStyle={styles.secondaryBtn} />
+              </View>
+              <Input keyboardType="numeric" label="Quantity" value={qty} onChangeText={setQty} inputStyle={styles.input} labelStyle={styles.label} />
+              {orderType === 'BUY' && (
+                <Input keyboardType="numeric" label="Limit Price" value={limitPrice} onChangeText={setLimitPrice} inputStyle={styles.input} labelStyle={styles.label} />
+              )}
+              <View style={styles.actionsRow}>
+                <Button title="Cancel" type="outline" onPress={() => setBuyVisible(false)} buttonStyle={styles.secondaryBtn} />
+                <Button title={actionLoading? 'Placing...':'Place Order'} onPress={submitBuy} loading={actionLoading} buttonStyle={styles.primaryBtn} />
+              </View>
+            </Card>
+          </View>
+        </Modal>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -208,5 +238,3 @@ const styles = StyleSheet.create({
 });
 
 export default StockDetailsScreen;
-
-

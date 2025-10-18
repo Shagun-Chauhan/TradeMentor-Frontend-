@@ -85,7 +85,7 @@ const HomeScreen = ({ navigation }) => {
     >
       <Text h4 style={styles.pageTitle}>Market Snapshot</Text>
 
-      {/* Market Overview Card */}
+      {/* Market Overview Card
       <Card containerStyle={styles.card}>
         <CardHeader title="Global Indices" iconName="chart-line" />
         <View style={styles.indicesGrid}>
@@ -93,7 +93,7 @@ const HomeScreen = ({ navigation }) => {
           {renderIndex('SENSEX', marketData?.sensex || 0, marketData?.sensexChange || 0)}
           {renderIndex('NASDAQ', marketData?.nasdaq || 0, marketData?.nasdaqChange || 0)}
         </View>
-      </Card>
+      </Card> */}
 
       {/* Watchlist Card */}
       <Card containerStyle={styles.card}>
